@@ -4,23 +4,6 @@
 bool HandleEvent(SDL_Event *Event)
 {
 	bool ShouldQuit = false;
-	SDL_Window *Window = SDL_GetWindowFromID(Event->window.windowID);
-	SDL_Renderer *Renderer = SDL_GetRenderer(Window);
-	static bool IsWhite = true;
-
-	if (IsWhite == true)
-	{
-		SDL_SetRenderDrawColor(Renderer, 255, 255, 255, 255);
-		IsWhite = false;
-	}
-	else
-	{
-		SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
-		IsWhite = true;
-	}
-
-	SDL_RenderClear(Renderer);
-	SDL_RenderPresent(Renderer);
 
 	switch (Event->type)
 	{
@@ -40,8 +23,31 @@ bool HandleEvent(SDL_Event *Event)
 				   Event->window.data1, Event->window.data2);
 		}
 		break;
+
+		case SDL_WINDOWEVENT_FOCUS_GAINED:
+		{
+			printf("SDL_WINDOWEVENT_FOCUS_GAINED\n");
+		}
+		break;
+
 		case SDL_WINDOWEVENT_EXPOSED:
 		{
+			SDL_Window *Window = SDL_GetWindowFromID(Event->window.windowID);
+			SDL_Renderer *Renderer = SDL_GetRenderer(Window);
+			static bool IsWhite = true;
+
+			if (IsWhite == true)
+			{
+				SDL_SetRenderDrawColor(Renderer, 255, 255, 255, 255);
+				IsWhite = false;
+			}
+			else
+			{
+				SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
+				IsWhite = true;
+			}
+			SDL_RenderClear(Renderer);
+			SDL_RenderPresent(Renderer);
 		}
 		break;
 		}
@@ -54,26 +60,26 @@ bool HandleEvent(SDL_Event *Event)
 
 int main(int argc, char *argv[])
 {
-	SDL_Window *Window;
-	SDL_Renderer *Renderer;
 
 	if (SDL_Init(SDL_INIT_VIDEO) != 0)
 	{
 		// TODO: SDL_Init didn't work!
 	}
 
-	Window = SDL_CreateWindow("Handmade Hero",
-							  SDL_WINDOWPOS_UNDEFINED,
-							  SDL_WINDOWPOS_UNDEFINED,
-							  640,
-							  480,
-							  SDL_WINDOW_RESIZABLE);
+	// create the window
+	SDL_Window *Window = SDL_CreateWindow("Handmade Hero",
+										  SDL_WINDOWPOS_UNDEFINED,
+										  SDL_WINDOWPOS_UNDEFINED,
+										  640,
+										  480,
+										  SDL_WINDOW_RESIZABLE);
 
 	if (Window)
 	{
-		Renderer = SDL_CreateRenderer(Window,
-									  -1,
-									  0);
+		// create a renderer for the window
+		SDL_Renderer *Renderer = SDL_CreateRenderer(Window,
+													-1,
+													0);
 
 		if (Renderer)
 		{
@@ -87,6 +93,14 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
+		else
+		{
+			// TODO: logging
+		}
+	}
+	else
+	{
+		// TODO: logging
 	}
 
 	SDL_Quit();
