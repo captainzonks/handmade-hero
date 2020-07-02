@@ -1,21 +1,66 @@
 #include <SDL2/SDL.h>
-#include <stdbool.h>
-#include <stdlib.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <stdint.h>
+
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
 
 #define internal static
 #define local_persist static
 #define global_variable static
 
+typedef int8_t int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
 global_variable SDL_Texture *Texture;
-global_variable void *Pixels;
-global_variable int TextureWidth;
+global_variable void *BitmapMemory;
+global_variable int BitmapWidth;
+global_variable int BitmapHeight;
+global_variable int BytesPerPixel = 4;
+
+internal void
+RenderWeirdGradient(int BlueOffset, int GreenOffset)
+{
+	int Width = BitmapWidth;
+	int Height = BitmapHeight;
+
+	int Pitch = Width * BytesPerPixel;
+	uint8 *Row = (uint8 *)BitmapMemory;
+	for (int Y = 0;
+		 Y < BitmapHeight;
+		 ++Y)
+	{
+		uint32 *Pixel = (uint32 *)Row;
+		for (int X = 0;
+			 X < BitmapWidth;
+			 ++X)
+		{
+			uint8 Blue = (X + BlueOffset);
+			uint8 Green = (Y + GreenOffset);
+
+			*Pixel++ = ((Green << 8) | Blue);
+		}
+
+		Row += Pitch;
+	}
+}
 
 internal void
 SDLResizeTexture(SDL_Renderer *Renderer, int Width, int Height)
 {
-	if (Pixels)
+	if (BitmapMemory)
 	{
-		free(Pixels);
+		munmap(BitmapMemory,
+			   BitmapWidth * BitmapHeight * BytesPerPixel);
 	}
 	if (Texture)
 	{
@@ -26,8 +71,14 @@ SDLResizeTexture(SDL_Renderer *Renderer, int Width, int Height)
 								SDL_TEXTUREACCESS_STREAMING,
 								Width,
 								Height);
-	TextureWidth = Width;
-	Pixels = malloc(Width * Height * 4);
+	BitmapWidth = Width;
+	BitmapHeight = Height;
+	BitmapMemory = mmap(0,
+						Width * Height * BytesPerPixel,
+						PROT_READ | PROT_WRITE,
+						MAP_PRIVATE | MAP_ANONYMOUS,
+						-1,
+						0);
 }
 
 internal void
@@ -35,8 +86,8 @@ SDLUpdateWindow(SDL_Window *Window, SDL_Renderer *Renderer)
 {
 	SDL_UpdateTexture(Texture,
 					  0,
-					  Pixels,
-					  TextureWidth * 4);
+					  BitmapMemory,
+					  BitmapWidth * BytesPerPixel);
 
 	SDL_RenderCopy(Renderer,
 				   Texture,
@@ -95,10 +146,7 @@ bool HandleEvent(SDL_Event *Event)
 int main(int argc, char *argv[])
 {
 
-	if (SDL_Init(SDL_INIT_VIDEO) != 0)
-	{
-		// TODO: SDL_Init didn't work!
-	}
+	SDL_Init(SDL_INIT_VIDEO);
 
 	// create the window
 	SDL_Window *Window = SDL_CreateWindow("Handmade Hero",
@@ -117,14 +165,27 @@ int main(int argc, char *argv[])
 
 		if (Renderer)
 		{
-			for (;;)
+			bool Running = true;
+			int Width, Height;
+			SDL_GetWindowSize(Window, &Width, &Height);
+			SDLResizeTexture(Renderer, Width, Height);
+			int XOffset = 0;
+			int YOffset = 0;
+			while (Running)
 			{
 				SDL_Event Event;
-				SDL_WaitEvent(&Event);
-				if (HandleEvent(&Event))
+				while (SDL_PollEvent(&Event))
 				{
-					break;
+					if (HandleEvent(&Event))
+					{
+						Running = false;
+					}
 				}
+				RenderWeirdGradient(XOffset, YOffset);
+				SDLUpdateWindow(Window, Renderer);
+
+				++XOffset;
+				YOffset += 2;
 			}
 		}
 		else
@@ -138,6 +199,5 @@ int main(int argc, char *argv[])
 	}
 
 	SDL_Quit();
-
 	return (0);
 }
