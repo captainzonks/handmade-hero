@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <stdint.h>
+#include <x86intrin.h>
 
 // TODO: implement sine ourselves
 #include <math.h>
@@ -434,6 +435,11 @@ int main(int argc, char *argv[])
 			// the loop
 			while (Running)
 			{
+				uint64 PerfCountFrequency = SDL_GetPerformanceFrequency();
+				uint64 LastCounter = SDL_GetPerformanceCounter();
+
+				uint64 LastCycleCount = _rdtsc();
+
 				SDL_Event Event;
 				while (SDL_PollEvent(&Event))
 				{
@@ -496,7 +502,9 @@ int main(int argc, char *argv[])
 				// AUDIO TEST
 				SDL_LockAudio();
 				int ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
-				int TargetCursor = ((AudioRingBuffer.PlayCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize);
+				int TargetCursor = ((AudioRingBuffer.PlayCursor +
+									 (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) %
+									SoundOutput.SecondaryBufferSize);
 				int BytesToWrite;
 				if (ByteToLock > TargetCursor)
 				{
@@ -514,6 +522,20 @@ int main(int argc, char *argv[])
 				SDLUpdateWindow(Window, Renderer, &GlobalBackbuffer);
 
 				++XOffset;
+
+				uint64 EndCounter = SDL_GetPerformanceCounter();
+				uint64 CounterElapsed = EndCounter - LastCounter;
+
+				uint64 EndCycleCount = _rdtsc();
+				uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
+
+				real64 MCPF = ((real64)CyclesElapsed / (1000.0f * 1000.0f));
+				real64 MSPerFrame = (((1000.0f * (real64)CounterElapsed) / (real64)PerfCountFrequency));
+				real64 FPS = (real64)PerfCountFrequency / (real64)CounterElapsed;
+
+				printf("%.02fms/f, %.02ff/s, %.02fMHz/f\n", MSPerFrame, FPS, MCPF);
+				LastCounter = EndCounter;
+				LastCycleCount = EndCycleCount;
 			}
 		}
 		else
