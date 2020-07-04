@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <stdint.h>
+
+// TODO: implement sine ourselves
 #include <math.h>
 
 #ifndef MAP_ANONYMOUS
