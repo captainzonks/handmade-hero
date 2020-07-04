@@ -6,8 +6,8 @@
                 "${workspaceFolder}/**"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang",
-            "intelliSenseMode": "clang-x64"
+            "compilerPath": "/usr/bin/gcc",
+            "intelliSenseMode": "gcc-x64"
         }
     ],
     "version": 4
