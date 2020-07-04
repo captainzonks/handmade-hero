@@ -1,16 +1,4 @@
-#include <SDL2/SDL.h>
-#include <stdio.h>
-#include <sys/mman.h>
 #include <stdint.h>
-#include <x86intrin.h>
-
-// TODO: implement sine ourselves
-#include <math.h>
-
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS MAP_ANON
-#endif
-
 #define internal static
 #define local_persist static
 #define global_variable static
@@ -29,6 +17,21 @@ typedef uint64_t uint64;
 
 typedef float real32;
 typedef double real64;
+
+// TODO: implement sine ourselves
+#include <math.h>
+
+#include "handmade.h"
+#include "handmade.cpp"
+
+#include <SDL2/SDL.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <x86intrin.h>
+
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
 
 struct sdl_offscreen_buffer
 {
@@ -116,25 +119,6 @@ SDLGetWindowDimension(SDL_Window *Window)
 	SDL_GetWindowSize(Window, &Result.Width, &Result.Height);
 
 	return (Result);
-}
-
-internal void
-RenderWeirdGradient(sdl_offscreen_buffer Buffer, int BlueOffset, int GreenOffset)
-{
-	uint8 *Row = (uint8 *)Buffer.Memory;
-	for (int Y = 0; Y < Buffer.Height; ++Y)
-	{
-		uint32 *Pixel = (uint32 *)Row;
-		for (int X = 0; X < Buffer.Width; ++X)
-		{
-			uint8 Blue = (X + BlueOffset);
-			uint8 Green = (Y + GreenOffset);
-
-			*Pixel++ = ((Green << 8) | Blue);
-		}
-
-		Row += Buffer.Pitch;
-	}
 }
 
 internal void
@@ -497,7 +481,12 @@ int main(int argc, char *argv[])
 				}
 
 				// GRAPHICS TEST
-				RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
+				game_offscreen_buffer Buffer = {};
+				Buffer.Memory = GlobalBackbuffer.Memory;
+				Buffer.Width = GlobalBackbuffer.Width;
+				Buffer.Height = GlobalBackbuffer.Height;
+				Buffer.Pitch = GlobalBackbuffer.Pitch;
+				GameUpdateAndRender(&Buffer, XOffset, YOffset);
 
 				// AUDIO TEST
 				SDL_LockAudio();
