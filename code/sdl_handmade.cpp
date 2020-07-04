@@ -510,8 +510,6 @@ int main(int argc, char *argv[])
 
 				SDLUpdateWindow(Window, Renderer, &GlobalBackbuffer);
 
-				++XOffset;
-
 				uint64 EndCounter = SDL_GetPerformanceCounter();
 				uint64 CounterElapsed = EndCounter - LastCounter;
 
