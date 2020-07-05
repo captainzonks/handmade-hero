@@ -24,7 +24,7 @@ typedef double real64;
 #include "handmade.h"
 #include "handmade.cpp"
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <x86intrin.h>
@@ -96,7 +96,7 @@ SDLInitAudio(int32 SamplesPerSecond, int32 BufferSize)
 	AudioSettings.userdata = &AudioRingBuffer;
 
 	AudioRingBuffer.Size = BufferSize;
-	AudioRingBuffer.Data = malloc(BufferSize);
+	AudioRingBuffer.Data = calloc(BufferSize, 1);
 	AudioRingBuffer.PlayCursor = AudioRingBuffer.WriteCursor = 0;
 
 	SDL_OpenAudio(&AudioSettings, 0);
@@ -289,8 +289,10 @@ struct sdl_sound_output
 };
 
 internal void
-SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int BytesToWrite)
+SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int BytesToWrite,
+				   game_sound_output_buffer *SoundBuffer)
 {
+	int16 *Samples = SoundBuffer->Samples;
 	void *Region1 = (uint8 *)AudioRingBuffer.Data + ByteToLock;
 	int Region1Size = BytesToWrite;
 	if (Region1Size + ByteToLock > SoundOutput->SecondaryBufferSize)
@@ -303,12 +305,8 @@ SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int BytesToWri
 	int16 *SampleOut = (int16 *)Region1;
 	for (int SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex)
 	{
-		real32 SineValue = sinf(SoundOutput->tSine);
-		int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
-		*SampleOut++ = SampleValue;
-		*SampleOut++ = SampleValue;
-
-		SoundOutput->tSine += 2.0f * Pi32 * 1.0f / (real32)SoundOutput->WavePeriod;
+		*SampleOut++ = *Samples++;
+		*SampleOut++ = *Samples++;
 		++SoundOutput->RunningSampleIndex;
 	}
 
@@ -316,12 +314,8 @@ SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int BytesToWri
 	SampleOut = (int16 *)Region2;
 	for (int SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex)
 	{
-		real32 SineValue = sinf(SoundOutput->tSine);
-		int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
-		*SampleOut++ = SampleValue;
-		*SampleOut++ = SampleValue;
-
-		SoundOutput->tSine += 2.0f * Pi32 * 1.0f / (real32)SoundOutput->WavePeriod;
+		*SampleOut++ = *Samples++;
+		*SampleOut++ = *Samples++;
 		++SoundOutput->RunningSampleIndex;
 	}
 }
@@ -375,6 +369,8 @@ SDLCloseGameControllers()
 int main(int argc, char *argv[])
 {
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_AUDIO);
+	uint64 PerfCountFrequency = SDL_GetPerformanceFrequency();
+
 	// Initialize game controllers:
 	SDLOpenGameControllers();
 	// create the window
@@ -399,31 +395,26 @@ int main(int argc, char *argv[])
 			int YOffset = 0;
 
 			sdl_sound_output SoundOutput = {};
-
 			SoundOutput.SamplesPerSecond = 48000;
 			SoundOutput.ToneHz = 256;
 			SoundOutput.ToneVolume = 3000;
 			SoundOutput.RunningSampleIndex = 0;
-			SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneVolume;
+			SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
 			SoundOutput.BytesPerSample = sizeof(int16) * 2;
 			SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
-
 			SoundOutput.tSine = 0.0f;
 			SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
 			// Open audio device
 			SDLInitAudio(48000, SoundOutput.SecondaryBufferSize);
-			SDLFillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample);
-
+			// NOTE: calloc() allocates memory and clears it to zero.
+			// It accepts the number of things being allocated and their size.
+			int16 *Samples = (int16 *)calloc(SoundOutput.SamplesPerSecond, SoundOutput.BytesPerSample);
 			SDL_PauseAudio(0);
 
-			// the loop
+			uint64 LastCounter = SDL_GetPerformanceCounter();
+			uint64 LastCycleCount = _rdtsc();
 			while (Running)
 			{
-				uint64 PerfCountFrequency = SDL_GetPerformanceFrequency();
-				uint64 LastCounter = SDL_GetPerformanceCounter();
-
-				uint64 LastCycleCount = _rdtsc();
-
 				SDL_Event Event;
 				while (SDL_PollEvent(&Event))
 				{
@@ -470,7 +461,7 @@ int main(int argc, char *argv[])
 						XOffset += StickX / 4096;
 						YOffset += StickY / 4096;
 
-						SoundOutput.ToneHz = 512 + (int)(256.0f * ((real32)StickY / 40000.0f));
+						SoundOutput.ToneHz = 512 + (int)(256.0f * ((real32)StickY / 30000.0f));
 						SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
 					}
 
@@ -479,14 +470,6 @@ int main(int argc, char *argv[])
 						// TODO: controller not plugged in
 					}
 				}
-
-				// GRAPHICS TEST
-				game_offscreen_buffer Buffer = {};
-				Buffer.Memory = GlobalBackbuffer.Memory;
-				Buffer.Width = GlobalBackbuffer.Width;
-				Buffer.Height = GlobalBackbuffer.Height;
-				Buffer.Pitch = GlobalBackbuffer.Pitch;
-				GameUpdateAndRender(&Buffer, XOffset, YOffset);
 
 				// AUDIO TEST
 				SDL_LockAudio();
@@ -506,23 +489,35 @@ int main(int argc, char *argv[])
 				}
 
 				SDL_UnlockAudio();
-				SDLFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
+
+				game_sound_output_buffer SoundBuffer = {};
+				SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
+				SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
+				SoundBuffer.Samples = Samples;
+
+				game_offscreen_buffer Buffer = {};
+				Buffer.Memory = GlobalBackbuffer.Memory;
+				Buffer.Width = GlobalBackbuffer.Width;
+				Buffer.Height = GlobalBackbuffer.Height;
+				Buffer.Pitch = GlobalBackbuffer.Pitch;
+				GameUpdateAndRender(&Buffer, XOffset, YOffset, &SoundBuffer, SoundOutput.ToneHz);
+
+				SDLFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
 
 				SDLUpdateWindow(Window, Renderer, &GlobalBackbuffer);
-
+				uint64 EndCycleCount = _rdtsc();
 				uint64 EndCounter = SDL_GetPerformanceCounter();
 				uint64 CounterElapsed = EndCounter - LastCounter;
-
-				uint64 EndCycleCount = _rdtsc();
 				uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
 
-				real64 MCPF = ((real64)CyclesElapsed / (1000.0f * 1000.0f));
 				real64 MSPerFrame = (((1000.0f * (real64)CounterElapsed) / (real64)PerfCountFrequency));
 				real64 FPS = (real64)PerfCountFrequency / (real64)CounterElapsed;
+				real64 MCPF = ((real64)CyclesElapsed / (1000.0f * 1000.0f));
 
 				printf("%.02fms/f, %.02ff/s, %.02fMHz/f\n", MSPerFrame, FPS, MCPF);
-				LastCounter = EndCounter;
+
 				LastCycleCount = EndCycleCount;
+				LastCounter = EndCounter;
 			}
 		}
 		else
