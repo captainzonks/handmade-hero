@@ -1,5 +1,20 @@
 #if !defined(HANDMADE_H)
 
+#if HANDMADE_SLOW
+#define Assert(Expression) \
+    if (!(Expression))     \
+    {                      \
+        *(int *)0 = 0;     \
+    }
+#else
+#define Assert(Expression)
+#endif
+
+#define Kilobytes(Value) ((Value)*1024LL)
+#define Megabytes(Value) (Kilobytes(Value) * 1024LL)
+#define Gigabytes(Value) (Megabytes(Value) * 1024LL)
+#define Terabytes(Value) (Gigabytes(Value) * 1024LL)
+
 struct game_offscreen_buffer
 {
     void *Memory;
@@ -37,8 +52,7 @@ struct game_controller_input
     real32 EndX;
     real32 EndY;
 
-    union
-    {
+    union {
         game_button_state Buttons[6];
         struct
         {
@@ -54,12 +68,34 @@ struct game_controller_input
 
 struct game_input
 {
+    // TODO: insert clock values here
+
     game_controller_input Controllers[4];
 };
 
+struct game_memory
+{
+    bool32 IsInitialized;
+    uint64 PermanentStorageSize;
+    void *PermanentStorage; // REQUIRED to be cleared to zero at startup
+    uint64 TransientStorageSize;
+    void *TransientStorage; // REQUIRED to be cleared to zero at startup
+};
+
 internal void
-GameUpdateAndRender(game_input *Input, game_offscreen_buffer *Buffer,
+GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer,
                     game_sound_output_buffer *SoundBuffer);
+
+//
+//
+//
+
+struct game_state
+{
+    int ToneHz;
+    int GreenOffset;
+    int BlueOffset;
+};
 
 #define HANDMADE_H
 #endif

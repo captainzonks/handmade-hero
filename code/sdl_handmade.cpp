@@ -383,6 +383,27 @@ int main(int argc, char *argv[])
 			int16 *Samples = (int16 *)calloc(SoundOutput.SamplesPerSecond, SoundOutput.BytesPerSample);
 			SDL_PauseAudio(0);
 
+#if HANDMADE_INTERNAL
+			void *BaseAddress = (void *)Terabytes(2);
+#else
+			void *BaseAddress = (void *)(0);
+#endif
+
+			game_memory GameMemory = {};
+			GameMemory.PermanentStorageSize = Megabytes(64);
+			GameMemory.TransientStorageSize = Gigabytes(4);
+
+			uint64 TotalStorageSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+
+			GameMemory.PermanentStorage = mmap(BaseAddress, TotalStorageSize,
+											   PROT_READ | PROT_WRITE,
+											   MAP_ANON | MAP_PRIVATE,
+											   -1, 0);
+
+			Assert(GameMemory.PermanentStorage);
+
+			GameMemory.TransientStorage = (uint8 *)(GameMemory.PermanentStorage) + GameMemory.PermanentStorageSize;
+
 			uint64 LastCounter = SDL_GetPerformanceCounter();
 			uint64 LastCycleCount = _rdtsc();
 			while (Running)
@@ -510,7 +531,7 @@ int main(int argc, char *argv[])
 				Buffer.Width = GlobalBackbuffer.Width;
 				Buffer.Height = GlobalBackbuffer.Height;
 				Buffer.Pitch = GlobalBackbuffer.Pitch;
-				GameUpdateAndRender(NewInput, &Buffer, &SoundBuffer);
+				GameUpdateAndRender(&GameMemory, NewInput, &Buffer, &SoundBuffer);
 
 				game_input *Temp = NewInput;
 				NewInput = OldInput;
