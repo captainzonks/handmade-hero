@@ -28,6 +28,10 @@ typedef double real64;
 
 #include <SDL.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/mman.h>
 #include <x86intrin.h>
 
@@ -44,6 +48,71 @@ SDL_GameController *ControllerHandles[MAX_CONTROLLERS];
 SDL_Haptic *RumbleHandles[MAX_CONTROLLERS];
 
 sdl_audio_ring_buffer AudioRingBuffer;
+
+internal debug_read_file_result
+DEBUGPlatformReadEntireFile(char *Filename)
+{
+    debug_read_file_result Result = {};
+
+    int FileHandle = open(Filename, O_RDONLY);
+    if (FileHandle == -1)
+    {
+        return Result;
+    }
+
+    struct stat FileStatus;
+    if (fstat(FileHandle, &FileStatus) == -1)
+    {
+        close(FileHandle);
+        return Result;
+    }
+    Result.ContentsSize = SafeTruncateUInt64(FileStatus.st_size);
+
+    Result.Contents = mmap(0, Result.ContentsSize, PROT_READ | PROT_WRITE, MAP_PRIVATE,
+            FileHandle, 0);
+
+    if(Result.Contents == MAP_FAILED)
+    {
+        Result.Contents = 0;
+        Result.ContentsSize = 0;
+    }
+
+    close(FileHandle);
+    return(Result);
+}
+
+internal void
+DEBUGPlatformFreeFileMemory(void *Memory)
+{
+    munmap(Memory, 4096);
+}
+
+internal bool32
+DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory)
+{
+    int FileHandle = open(Filename, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+    if (FileHandle == -1)
+        return false;
+
+    uint32 BytesToWrite = MemorySize;
+    uint8 *NextByteLocation = (uint8*)Memory;
+    while (BytesToWrite)
+    {
+        uint32 BytesWritten = write(FileHandle, NextByteLocation, BytesToWrite);
+        if (BytesWritten == -1)
+        {
+            close(FileHandle);
+            return false;
+        }
+        BytesToWrite -= BytesWritten;
+        NextByteLocation += BytesWritten;
+    }
+
+    close(FileHandle);
+
+    return true;
+}
 
 internal void
 SDLAudioCallback(void *UserData, Uint8 *AudioData, int Length)
