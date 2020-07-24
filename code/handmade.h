@@ -1,5 +1,6 @@
 #if !defined(HANDMADE_H)
 
+
 #if HANDMADE_SLOW
 #define Assert(Expression) \
     if (!(Expression))     \
@@ -96,6 +97,7 @@ struct game_state
     int GreenOffset;
     int BlueOffset;
 };
+
 
 #define HANDMADE_H
 #endif

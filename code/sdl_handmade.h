@@ -34,5 +34,6 @@ struct sdl_sound_output
     int LatencySampleCount;
 };
 
+
 #define SDL_HANDMADE_H
 #endif
