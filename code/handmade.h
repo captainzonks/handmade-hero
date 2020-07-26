@@ -29,47 +29,45 @@
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
 inline uint32
-SafeTruncateUInt64(uint64 Value)
-{
+SafeTruncateUInt64(uint64 Value) {
     Assert(Value <= 0xFFFFFFFF);
     uint32 Result = (uint32)Value;
-    return(Result);
+    return (Result);
 }
 
 #if HANDMADE_INTERNAL
-struct debug_read_file_result
-{
+struct debug_read_file_result {
     uint32 ContentsSize;
     void *Contents;
 };
+
 internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
+
 internal void DEBUGPlatformFreeFileMemory(void *Memory);
+
 internal bool32 DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory);
+
 #endif
 
-struct game_offscreen_buffer
-{
+struct game_offscreen_buffer {
     void *Memory;
     int Width;
     int Height;
     int Pitch;
 };
 
-struct game_sound_output_buffer
-{
+struct game_sound_output_buffer {
     int SamplesPerSecond;
     int SampleCount;
     int16 *Samples;
 };
 
-struct game_button_state
-{
+struct game_button_state {
     int HalfTransitionCount;
     bool32 EndedDown;
 };
 
-struct game_controller_input
-{
+struct game_controller_input {
     bool32 IsConnected;
     bool32 IsAnalog;
     real32 StickAverageX;
@@ -77,8 +75,7 @@ struct game_controller_input
 
     union {
         game_button_state Buttons[12];
-        struct
-        {
+        struct {
             game_button_state MoveUp;
             game_button_state MoveDown;
             game_button_state MoveLeft;
@@ -102,22 +99,19 @@ struct game_controller_input
     };
 };
 
-struct game_input
-{
+struct game_input {
     // TODO: insert clock values here
     game_controller_input Controllers[5];
 };
 
-inline game_controller_input *GetController(game_input *Input, int unsigned ControllerIndex)
-{
+inline game_controller_input *GetController(game_input *Input, int unsigned ControllerIndex) {
     Assert(ControllerIndex < ArrayCount(Input->Controllers));
 
     game_controller_input *Result = &Input->Controllers[ControllerIndex];
-    return(Result);
+    return (Result);
 }
 
-struct game_memory
-{
+struct game_memory {
     bool32 IsInitialized;
     uint64 PermanentStorageSize;
     void *PermanentStorage; // REQUIRED to be cleared to zero at startup
@@ -133,8 +127,7 @@ GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffe
 //
 //
 
-struct game_state
-{
+struct game_state {
     int ToneHz;
     int GreenOffset;
     int BlueOffset;

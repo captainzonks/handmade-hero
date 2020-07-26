@@ -1,7 +1,6 @@
 #if !defined(SDL_HANDMADE_H)
 
-struct sdl_offscreen_buffer
-{
+struct sdl_offscreen_buffer {
     // pixels are always 32-bits wide, Memory Order BB GG RR xx
     SDL_Texture *Texture;
     void *Memory;
@@ -10,22 +9,19 @@ struct sdl_offscreen_buffer
     int Pitch;
 };
 
-struct sdl_window_dimension
-{
+struct sdl_window_dimension {
     int Width;
     int Height;
 };
 
-struct sdl_audio_ring_buffer
-{
+struct sdl_audio_ring_buffer {
     int Size;
     int WriteCursor;
     int PlayCursor;
     void *Data;
 };
 
-struct sdl_sound_output
-{
+struct sdl_sound_output {
     int SamplesPerSecond;
     uint32 RunningSampleIndex;
     int BytesPerSample;
