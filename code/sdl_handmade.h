@@ -7,6 +7,7 @@ struct sdl_offscreen_buffer {
     int Width;
     int Height;
     int Pitch;
+    int BytesPerPixel;
 };
 
 struct sdl_window_dimension {
@@ -28,6 +29,12 @@ struct sdl_sound_output {
     int SecondaryBufferSize;
     real32 tSine;
     int LatencySampleCount;
+};
+
+struct sdl_debug_time_marker
+{
+    int PlayCursor;
+    int WriteCursor;
 };
 
 

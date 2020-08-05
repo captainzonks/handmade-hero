@@ -195,6 +195,7 @@ SDLResizeTexture(sdl_offscreen_buffer* Buffer, SDL_Renderer* Renderer, int Width
     Buffer->Width = Width;
     Buffer->Height = Height;
     Buffer->Pitch = Width * BytesPerPixel;
+    Buffer->BytesPerPixel = BytesPerPixel;
     Buffer->Memory = mmap(0,
                           Width * Height * BytesPerPixel,
                           PROT_READ | PROT_WRITE,
@@ -395,6 +396,52 @@ SDLCloseGameControllers() {
     }
 }
 
+internal void
+SDLDebugDrawVertical(sdl_offscreen_buffer *GlobalBackBuffer,
+                     int X, int Top, int Bottom, uint32 Color)
+{
+    uint8 *Pixel = ((uint8 *)GlobalBackBuffer->Memory +
+            X*GlobalBackBuffer->BytesPerPixel +
+            Top*GlobalBackBuffer->Pitch);
+    for(int Y = Top; Y < Bottom; ++Y)
+    {
+        *(uint32 *)Pixel = Color;
+        Pixel += GlobalBackBuffer->Pitch;
+    }
+}
+
+inline void
+SDLDrawSoundBufferMarker(sdl_offscreen_buffer *Backbuffer,
+                         sdl_sound_output *SoundOutput,
+                         real32 C, int PadX, int Top, int Bottom,
+                         int Value, uint32 Color)
+{
+    Assert(Value < SoundOutput->SecondaryBufferSize);
+    real32 XReal32 = (C * (real32)Value);
+    int X = PadX + (int)XReal32;
+    SDLDebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
+}
+
+internal void
+SDLDebugSyncDisplay(sdl_offscreen_buffer *Backbuffer,
+                    int MarkerCount, sdl_debug_time_marker *Markers,
+                    sdl_sound_output *SoundOutput, real32 TargetSecondsPerFrame)
+{
+    int PadX = 16;
+    int PadY = 16;
+
+    int Top = PadY;
+    int Bottom = Backbuffer->Height - PadY;
+
+    real32 C = (real32)(Backbuffer->Width - 2*PadX) / (real32)SoundOutput->SecondaryBufferSize;
+    for(int MarkerIndex = 0; MarkerIndex < MarkerCount; ++MarkerIndex)
+    {
+        sdl_debug_time_marker *ThisMarker = &Markers[MarkerIndex];
+        SDLDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->PlayCursor, 0xFFFFFFFF);
+        SDLDrawSoundBufferMarker(Backbuffer, SoundOutput, C, PadX, Top, Bottom, ThisMarker->WriteCursor, 0xFFFF0000);
+    }
+}
+
 // ENTER HERE
 int main(int argc, char* argv[]) {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_AUDIO);
@@ -461,6 +508,9 @@ int main(int argc, char* argv[]) {
             Assert(GameMemory.PermanentStorage);
 
             GameMemory.TransientStorage = (uint8*) (GameMemory.PermanentStorage) + GameMemory.PermanentStorageSize;
+
+            int DebugTimeMarkerIndex = 0;
+            sdl_debug_time_marker DebugTimeMarkers[GameUpdateHz / 2] = {0};
 
             uint64 LastCounter = SDL_GetPerformanceCounter();
             uint64 LastCycleCount = _rdtsc();
@@ -630,7 +680,26 @@ int main(int argc, char* argv[]) {
 
                 uint64 EndCounter = SDL_GetPerformanceCounter();
 
+#if HANDMADE_INTERNAL
+                SDLDebugSyncDisplay(&GlobalBackbuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
+                                    &SoundOutput, TargetSecondsPerFrame);
+#endif
+
                 SDLUpdateWindow(Window, Renderer, &GlobalBackbuffer);
+
+#if HANDMADE_INTERNAL
+                // this is debug code
+                {
+                    sdl_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex++];
+                    if(DebugTimeMarkerIndex > ArrayCount(DebugTimeMarkers))
+                    {
+                        DebugTimeMarkerIndex = 0;
+                    }
+                    Marker->PlayCursor = AudioRingBuffer.PlayCursor;
+                    Marker->WriteCursor = AudioRingBuffer.WriteCursor;
+                }
+#endif
+
                 uint64 EndCycleCount = _rdtsc();
                 uint64 CounterElapsed = EndCounter - LastCounter;
                 uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
