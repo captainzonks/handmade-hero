@@ -27,7 +27,7 @@ typedef double real64;
 #include "handmade.h"
 #include "handmade.cpp"
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
